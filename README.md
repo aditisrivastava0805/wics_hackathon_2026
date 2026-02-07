@@ -31,7 +31,7 @@ Encore is a concert-first social platform that helps UT Austin students connect 
 
 ```bash
 git clone <repo-url>
-cd encore
+cd wics_hackathon_2026
 npm install
 ```
 
