@@ -1,6 +1,6 @@
 'use client';
 
-import { UserPlus, Check, Clock } from 'lucide-react';
+import { UserPlus, Check, Clock, Eye } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
 import type { UserProfile } from '@/lib/types';
 
@@ -10,6 +10,7 @@ interface MemberCardProps {
   isCurrentUser?: boolean;
   connectionStatus?: 'none' | 'pending' | 'accepted';
   onRequestConnection?: () => void;
+  onViewProfile?: () => void;
 }
 
 /**
@@ -21,17 +22,30 @@ export function MemberCard({
   isCurrentUser,
   connectionStatus = 'none',
   onRequestConnection,
+  onViewProfile,
 }: MemberCardProps) {
+  // Check if avatar is an emoji (single character or emoji)
+  const isEmoji = profile.avatarUrl && profile.avatarUrl.length <= 4 && !/^https?:\/\//.test(profile.avatarUrl);
+  
   return (
-    <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+    <div 
+      className={`flex items-center gap-3 p-3 rounded-lg bg-gray-50 transition-colors ${
+        onViewProfile ? 'hover:bg-gray-100 cursor-pointer' : ''
+      }`}
+      onClick={onViewProfile}
+    >
       {/* Avatar */}
       <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-medium flex-shrink-0">
         {profile.avatarUrl ? (
-          <img
-            src={profile.avatarUrl}
-            alt={profile.displayName}
-            className="w-full h-full rounded-full object-cover"
-          />
+          isEmoji ? (
+            <span className="text-xl">{profile.avatarUrl}</span>
+          ) : (
+            <img
+              src={profile.avatarUrl}
+              alt={profile.displayName}
+              className="w-full h-full rounded-full object-cover"
+            />
+          )
         ) : (
           getInitials(profile.displayName || 'U')
         )}
@@ -71,9 +85,9 @@ export function MemberCard({
         )}
       </div>
 
-      {/* Action button */}
+      {/* Action buttons */}
       {!isCurrentUser && (
-        <div>
+        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
           {connectionStatus === 'none' && onRequestConnection && (
             <button
               onClick={onRequestConnection}

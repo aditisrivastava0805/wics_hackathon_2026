@@ -1,19 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { Calendar, MapPin, DollarSign } from 'lucide-react';
+import { Calendar, MapPin, DollarSign, CheckCircle } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import type { Concert } from '@/lib/types';
 
 interface ConcertCardProps {
   concert: Concert;
   matchScore?: number;
+  showJoinedBadge?: boolean;
 }
 
 /**
  * ConcertCard - Displays a concert with image, details, and optional match score
  */
-export function ConcertCard({ concert, matchScore }: ConcertCardProps) {
+export function ConcertCard({ concert, matchScore, showJoinedBadge }: ConcertCardProps) {
   return (
     <Link
       href={`/concerts/${concert.id}`}
@@ -33,9 +34,18 @@ export function ConcertCard({ concert, matchScore }: ConcertCardProps) {
           </div>
         )}
         
-        {/* Match score badge */}
-        {matchScore !== undefined && matchScore > 50 && (
-          <div className="absolute top-2 right-2">
+        {/* Badges container */}
+        <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+          {/* Joined badge */}
+          {showJoinedBadge && (
+            <span className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-500 text-white">
+              <CheckCircle size={12} />
+              Joined
+            </span>
+          )}
+          
+          {/* Match score badge */}
+          {matchScore !== undefined && matchScore > 50 && (
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
               matchScore >= 80 
                 ? 'bg-green-500 text-white' 
@@ -45,8 +55,8 @@ export function ConcertCard({ concert, matchScore }: ConcertCardProps) {
             }`}>
               {matchScore}% match
             </span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Content */}

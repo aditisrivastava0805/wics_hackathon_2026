@@ -193,16 +193,28 @@ Functional > pretty. Minimal Tailwind. Clear loading + error states.
 ## Phase 7: Profile & Settings
 
 ### Step 7.1: Profile Page
-- [ ] Display current user info (name, email, avatar)
-- [ ] Edit form for: display name, bio, music preferences, budget, vibes
-- [ ] Save button with loading state
-- [ ] Success feedback on save
+- [x] Display current user info (name, email, avatar)
+- [x] Edit form for: display name, bio, music preferences, budget, vibes
+- [x] Save button with loading state
+- [x] Success feedback on save (toast notifications)
+- [x] Emoji avatar picker
+- [x] Genre selection with multi-select chips
+- [x] Artist management (add/remove)
+- [x] Vibe selection with visual cards
+- [x] Gender preference selection
+- [x] Account information display
 
 ### Step 7.2: Sign Out
-- [ ] Sign out button in header/nav
-- [ ] Clears auth state, redirects to `/login`
+- [x] Sign out button in header/nav
+- [x] Clears auth state, redirects to `/login`
 
-**Checkpoint**: User can manage their profile and sign out.
+### Step 7.3: View Other User Profiles
+- [x] Profile modal for viewing other users
+- [x] Clickable member cards in concert rooms
+- [x] Clickable user info in thread detail page
+- [x] Full profile display with preferences
+
+**Checkpoint**: User can manage their profile, view other profiles, and sign out.
 
 ---
 
