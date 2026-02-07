@@ -75,7 +75,7 @@ def _clean_event_to_concert(raw: dict, index: int) -> dict:
 
 def fetch_google_events_page(query: str, start: int = 0, date_filter: str = None) -> List[dict]:
     """Fetches a single page (10 results) from SerpAPI."""
-    key = os.environ.get("SERPAPI_API_KEY")
+    key = "71c0636493ef472f0a0eb4e5b87190f9189367cdae46f29d52884ffc3b667824"
     if not key:
         print("❌ ERROR: SERPAPI_API_KEY not found in environment variables.")
         return []
