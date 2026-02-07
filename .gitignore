@@ -1,5 +1,6 @@
 # Dependencies
 /node_modules
+/frontend/node_modules
 /.pnp
 .pnp.js
 
@@ -8,7 +9,9 @@
 
 # Next.js
 /.next/
+/frontend/.next/
 /out/
+/frontend/out/
 
 # Production
 /build
