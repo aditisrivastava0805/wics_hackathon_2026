@@ -3,9 +3,12 @@ from flask_cors import CORS
 import firebase_admin
 from firebase_admin import credentials, firestore
 import os
+from dotenv import load_dotenv  # <--- NEW LINE
 
+from flask import Flask, jsonify, request
 from services.serpapi_events import get_concerts_in_austin
 
+load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
