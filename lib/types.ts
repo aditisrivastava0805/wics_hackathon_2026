@@ -18,6 +18,8 @@ export interface UserProfile {
   avatarUrl: string | null;
   bio: string | null;
   spotifyConnected: boolean;
+  /** Last.fm username for fetching real listening history (top artists & tags as genres). */
+  lastfmUsername?: string | null;
   musicPreferences: MusicPreferences;
   budgetRange: BudgetRange;
   genderPref: GenderPref;

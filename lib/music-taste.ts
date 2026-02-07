@@ -1,128 +1,120 @@
 import type { MusicPreferences, UserProfile } from './types';
 
-/**
- * Get the current user's music taste (genres + artists).
- * When Spotify OAuth is implemented, this will call the Spotify API for real data.
- * Until then, returns robust mock data so the rest of the team isn't blocked.
- */
+const LASTFM_API_BASE = 'https://ws.audioscrobbler.com/2.0/';
 
-const MOCK_GENRES = [
-  'Pop',
-  'Indie',
-  'Rock',
-  'Hip-Hop',
-  'R&B',
-  'Country',
-  'Electronic',
-  'Jazz',
-  'Folk',
-  'Latin',
-  'Alternative',
-  'Soul',
-  'Metal',
-  'Blues',
-] as const;
+// Ensure API key is only used on the server for security
+function getLastfmApiKey(): string | undefined {
+  return process.env.LASTFM_API_KEY;
+}
 
-const MOCK_ARTISTS = [
-  'Taylor Swift',
-  'Phoebe Bridgers',
-  'Kendrick Lamar',
-  'SZA',
-  'Bad Bunny',
-  'ODESZA',
-  'Foo Fighters',
-  'Morgan Wallen',
-  'John Mayer',
-  'Kamasi Washington',
-  'Billie Eilish',
-  'Olivia Rodrigo',
-  'The 1975',
-  'Boygenius',
-  'Mitski',
-  'Lana Del Rey',
-  'Tyler, the Creator',
-  'Beyoncé',
-  'Harry Styles',
-  'Lorde',
-] as const;
+interface LastFmTopArtistsResponse {
+  topartists?: { artist?: Array<{ name: string }> };
+  error?: number;
+}
+
+interface LastFmTopTagsResponse {
+  toptags?: { tag?: Array<{ name: string }> };
+  error?: number;
+}
 
 /**
- * Simple deterministic "hash" from a string to a number in [0, 1).
- * Same userId always yields same mock profile.
+ * Fetch music taste from Last.fm with error boundaries and caching.
  */
-function hashUserId(userId: string): number {
-  let h = 0;
-  for (let i = 0; i < userId.length; i++) {
-    h = (h << 5) - h + userId.charCodeAt(i);
-    h = h & 0x7fff_ffff;
+export async function fetchLastfmMusicTaste(
+  username: string,
+  options?: { limitArtists?: number; limitTags?: number }
+): Promise<MusicPreferences | null> {
+  const apiKey = getLastfmApiKey();
+  if (!apiKey?.trim()) {
+    console.error("Missing LASTFM_API_KEY in environment variables.");
+    return null;
   }
-  return Math.abs(h) / 0x8000_0000;
-}
 
-/**
- * Seeded random in [0, 1).
- */
-function nextSeed(seed: number): number {
-  const s = (seed * 9301 + 49297) % 233280;
-  return s / 233280;
-}
+  const limitArtists = options?.limitArtists ?? 30;
+  const limitTags = options?.limitTags ?? 20;
 
-/**
- * Pick n unique items from array in a deterministic way based on seed (0..1).
- */
-function pickN<T>(arr: readonly T[], n: number, seed: number): T[] {
-  if (n >= arr.length) return [...arr];
-  const indices = arr.map((_, i) => i);
-  let s = seed;
-  for (let i = 0; i < n; i++) {
-    s = nextSeed(s);
-    const swap = i + Math.floor(s * (indices.length - i));
-    [indices[i], indices[swap]] = [indices[swap], indices[i]];
+  const getUrl = (method: string, extra: Record<string, string>) => {
+    const params = new URLSearchParams({
+      method,
+      user: username.trim(),
+      api_key: apiKey,
+      format: 'json',
+      ...extra,
+    });
+    return `${LASTFM_API_BASE}?${params.toString()}`;
+  };
+
+  try {
+    // We use allSettled so if tags fail, we still get artists (and vice versa)
+    const [artistsResult, tagsResult] = await Promise.allSettled([
+      fetch(getUrl('user.getTopArtists', { limit: String(limitArtists) }), {
+        next: { revalidate: 3600 }, // Cache for 1 hour
+      }).then(res => res.json()),
+      fetch(getUrl('user.getTopTags', { limit: String(limitTags) }), {
+        next: { revalidate: 3600 }, 
+      }).then(res => res.json()),
+    ]);
+
+    const artists: string[] = [];
+    const genres: string[] = [];
+
+    if (artistsResult.status === 'fulfilled' && !artistsResult.value.error) {
+      const list = artistsResult.value.topartists?.artist;
+      if (Array.isArray(list)) {
+        list.forEach(a => a.name && artists.push(a.name.trim()));
+      }
+    }
+
+    if (tagsResult.status === 'fulfilled' && !tagsResult.value.error) {
+      const list = tagsResult.value.toptags?.tag;
+      if (Array.isArray(list)) {
+        list.forEach(t => t.name && genres.push(t.name.trim()));
+      }
+    }
+
+    return { artists, genres };
+  } catch (error) {
+    console.error("Last.fm Fetch Error:", error);
+    return null;
   }
-  return indices.slice(0, n).map((i) => arr[i]);
 }
 
 /**
- * Returns music preferences for the user.
- * - If user has spotifyConnected and we have real Spotify data, that would be returned (future).
- * - Otherwise returns deterministic mock data based on userId so the same user gets consistent taste.
- * - If no userId is provided (e.g. anonymous), returns a default mock set.
+ * Get user music taste. Falls back to empty arrays if no Last.fm account.
  */
-export function get_user_music_taste(
+export async function get_user_music_taste(
   userId: string | null | undefined,
   userProfile?: UserProfile | null
-): MusicPreferences {
-  // Future: if (userProfile?.spotifyConnected) return fetchSpotifyMusicTaste(userId);
-  const seed = userId ? hashUserId(userId) : 0.5;
-  const numGenres = 3 + Math.floor(seed * 4); // 3–6 genres
-  const numArtists = 4 + Math.floor(seed * 7); // 4–10 artists
-  const genres = pickN(MOCK_GENRES, numGenres, seed);
-  const artists = pickN(MOCK_ARTISTS, numArtists, seed + 0.31);
-  return { genres, artists };
+): Promise<MusicPreferences> {
+  const username = userProfile?.lastfmUsername;
+
+  if (username?.trim()) {
+    const taste = await fetchLastfmMusicTaste(username.trim());
+    if (taste) return taste;
+  }
+
+  // Return empty structure instead of mock data
+  return { genres: [], artists: [] };
 }
 
 /**
- * Optional: get mock music taste for a user and merge with existing profile preferences.
- * Use when you want to "fill in" empty musicPreferences from the profile with mock data.
+ * Final logic: Priority is manual profile edits > Last.fm > Empty State.
  */
-export function get_user_music_taste_or_mock(
+export async function get_user_music_taste_or_empty(
   userProfile: UserProfile | null | undefined
-): MusicPreferences {
-  if (!userProfile) {
-    return get_user_music_taste(null);
-  }
+): Promise<MusicPreferences> {
+  if (!userProfile) return { genres: [], artists: [] };
+
   const existing = userProfile.musicPreferences;
-  const hasGenres = existing?.genres?.length;
-  const hasArtists = existing?.artists?.length;
-  if (hasGenres && hasArtists) {
+  
+  // If user has manually saved preferences, use those
+  if (existing?.genres?.length || existing?.artists?.length) {
     return {
-      genres: existing.genres,
-      artists: existing.artists,
+      genres: existing.genres ?? [],
+      artists: existing.artists ?? [],
     };
   }
-  const mock = get_user_music_taste(userProfile.id, userProfile);
-  return {
-    genres: hasGenres ? existing!.genres : mock.genres,
-    artists: hasArtists ? existing!.artists : mock.artists,
-  };
+
+  // Otherwise, pull fresh from Last.fm
+  return await get_user_music_taste(userProfile.id, userProfile);
 }
