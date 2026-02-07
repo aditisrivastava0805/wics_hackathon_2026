@@ -3,9 +3,8 @@ from flask_cors import CORS
 import firebase_admin
 from firebase_admin import credentials, firestore
 import os
-from dotenv import load_dotenv  # <--- NEW LINE
+from dotenv import load_dotenv
 
-from flask import Flask, jsonify, request
 from services.serpapi_events import get_concerts_in_austin
 
 load_dotenv()
@@ -55,7 +54,6 @@ def api_events():
         return jsonify({"data": concerts})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
