@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UT Austin Music Dating App</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">🎵 UT Music Match</div>
+      <nav class="nav">
+        <button class="nav-btn active" data-page="discover">Discover</button>
+        <button class="nav-btn" data-page="matches">Matches</button>
+        <button class="nav-btn" data-page="concerts">Concerts</button>
+        <button class="nav-btn" data-page="profile">Profile</button>
+      </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Discover Page (Swipe Interface) -->
+      <div id="discover-page" class="page active">
+        <h2>Discover People</h2>
+        <div id="swipe-container" class="swipe-container">
+          <div class="card" id="current-card">
+            <div class="card-content">
+              <div class="user-avatar">👤</div>
+              <h3 class="user-name">Loading...</h3>
+              <p class="user-info"></p>
+              <div class="music-tags">
+                <h4>Music Taste:</h4>
+                <div id="artist-tags" class="tags"></div>
+                <div id="genre-tags" class="tags"></div>
+              </div>
+              <div class="compatibility-badge">
+                <span class="score">0%</span>
+                <span class="label">Match</span>
+              </div>
+              <div class="match-reasons">
+                <h4>Why you'll match:</h4>
+                <ul id="reason-list"></ul>
+              </div>
+            </div>
+          </div>
+          <div class="swipe-actions">
+            <button class="swipe-btn dislike" id="dislike-btn">✕</button>
+            <button class="swipe-btn like" id="like-btn">♥</button>
+          </div>
+        </div>
+        <div id="no-more-users" class="empty-state" style="display: none;">
+          <h3>No more users to show</h3>
+          <p>Check back later for more matches!</p>
+        </div>
+      </div>
+
+      <!-- Matches Page -->
+      <div id="matches-page" class="page">
+        <h2>Your Matches</h2>
+        <div id="matches-list" class="matches-list"></div>
+        <div id="no-matches" class="empty-state">
+          <h3>No matches yet</h3>
+          <p>Start swiping to find your concert buddy!</p>
+        </div>
+      </div>
+
+      <!-- Concerts Page -->
+      <div id="concerts-page" class="page">
+        <h2>Concerts in Austin</h2>
+        <div class="filter-controls">
+          <select id="genre-filter" class="filter-select">
+            <option value="">All Genres</option>
+            <option value="pop">Pop</option>
+            <option value="rock">Rock</option>
+            <option value="indie">Indie</option>
+            <option value="hip-hop">Hip-Hop</option>
+            <option value="electronic">Electronic</option>
+            <option value="country">Country</option>
+            <option value="jazz">Jazz</option>
+          </select>
+          <button id="show-recommended" class="btn-secondary">Show Recommended</button>
+        </div>
+        <div id="concerts-list" class="concerts-list"></div>
+      </div>
+
+      <!-- Profile Page -->
+      <div id="profile-page" class="page">
+        <h2>Your Profile</h2>
+        <div class="profile-container">
+          <div class="profile-section">
+            <h3>Basic Info</h3>
+            <div id="user-info"></div>
+          </div>
+          <div class="profile-section">
+            <h3>Music Preferences</h3>
+            <button id="connect-spotify" class="btn-primary">Connect Spotify</button>
+            <button id="connect-apple-music" class="btn-primary">Connect Apple Music</button>
+            <div id="music-profile"></div>
+          </div>
+          <div class="profile-section">
+            <h3>Matching Preferences</h3>
+            <div class="preference-control">
+              <label for="gender-preference">Gender Preference:</label>
+              <select id="gender-preference" class="preference-select">
+                <option value="all">All</option>
+                <option value="same">Same Gender</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+            <div class="preference-control">
+              <label>
+                <input type="checkbox" id="women-only-mode">
+                Women-Only Mode (for female users only)
+              </label>
+            </div>
+            <div class="preference-control">
+              <label for="looking-for">Looking For:</label>
+              <select id="looking-for" class="preference-select">
+                <option value="concerts">Concert Buddies</option>
+                <option value="dating">Dating</option>
+                <option value="friends">Friends</option>
+              </select>
+            </div>
+            <button id="save-preferences" class="btn-primary">Save Preferences</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Match Modal -->
+    <div id="match-modal" class="modal">
+      <div class="modal-content">
+        <div class="match-celebration">
+          <h2>🎉 It's a Match! 🎉</h2>
+          <p>You and <span id="match-user-name"></span> both liked each other!</p>
+          <div class="shared-interests">
+            <h3>Shared Interests:</h3>
+            <div id="shared-content"></div>
+          </div>
+          <button id="close-modal" class="btn-primary">Continue Swiping</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

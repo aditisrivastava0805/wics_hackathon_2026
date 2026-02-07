@@ -1,0 +1,38 @@
+{
+  "name": "wics_hackathon_2026",
+  "version": "1.0.0",
+  "description": "Music-first dating/social app for UT students in Austin",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aditisrivastava0805/wics_hackathon_2026.git"
+  },
+  "keywords": [
+    "music",
+    "dating",
+    "concerts",
+    "austin",
+    "ut-austin",
+    "spotify",
+    "apple-music"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/aditisrivastava0805/wics_hackathon_2026/issues"
+  },
+  "homepage": "https://github.com/aditisrivastava0805/wics_hackathon_2026#readme",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}
