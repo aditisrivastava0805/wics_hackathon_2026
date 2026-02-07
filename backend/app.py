@@ -4,6 +4,8 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import os
 
+from services.serpapi_events import get_concerts_in_austin
+
 app = Flask(__name__)
 CORS(app)
 
@@ -30,6 +32,27 @@ def test_db():
     # Try to read the 'users' collection to see if it works
     users_ref = db.collection('users')
     return jsonify({"message": "Database connection verified!"})
+
+
+# --- SERPAPI EVENTS (Concerts in Austin) ---
+@app.route('/api/events', methods=['GET'])
+def api_events():
+    """
+    GET /api/events?music_only=1&max=50
+    Returns cleaned list of concerts in Austin from Google Events (SerpAPI).
+    Images are normalized to URLs only (no base64). Results are filtered to music and by date.
+    """
+    try:
+        music_only = request.args.get('music_only', 'true').lower() in ('1', 'true', 'yes')
+        max_results = min(100, max(1, int(request.args.get('max', 50))))
+        concerts = get_concerts_in_austin(
+            music_only=music_only,
+            max_results=max_results,
+        )
+        return jsonify({"data": concerts})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
