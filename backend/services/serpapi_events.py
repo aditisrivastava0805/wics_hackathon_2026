@@ -1,8 +1,3 @@
-"""
-SerpAPI Google Events integration for "Concerts in Austin".
-Fetches events, cleans JSON, normalizes image URLs, and filters to music/concerts with date filter.
-"""
-
 import os
 import requests
 from datetime import datetime
@@ -13,235 +8,123 @@ SERPAPI_BASE = "https://serpapi.com/search"
 DEFAULT_QUERY = "Concerts in Austin"
 DEFAULT_LOCATION = "Austin, TX, USA"
 
-# Keywords that suggest a music/concert event (title or description)
+# Music filter keywords
 MUSIC_KEYWORDS = [
     "concert", "live music", "tour", "band", "singer", "artist", "music",
     "acoustic", "rock", "pop", "country", "jazz", "indie", "folk", "r&b",
     "hip-hop", "hip hop", "electronic", "edm", "blues", "metal", "punk",
-    "nightclub", "venue", "tickets", "spotify.com/concert", "song",
+    "nightclub", "venue", "tickets", "song",
 ]
-# Keywords that suggest NON-music (exclude these)
-NON_MUSIC_KEYWORDS = [
-    "comedy", "murder mystery", "dinner show", "theatre", "theater",
-    "ballet", "nutcracker", "market at", "festival"  # keep "music festival" via music match
-]
+NON_MUSIC_KEYWORDS = ["comedy", "murder mystery", "theatre", "theater", "ballet"]
 
-# Placeholder image when API returns base64 or invalid URL (optional)
 FALLBACK_IMAGE_URL = "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800"
 
-
 def _is_valid_image_url(value: Any) -> bool:
-    """Return True only if value is a string that is an accessible HTTP(S) URL (not base64/data)."""
-    if not value or not isinstance(value, str):
-        return False
+    if not value or not isinstance(value, str): return False
     value = value.strip()
-    if value.startswith("data:") or value.startswith("base64") or len(value) > 2000:
-        return False
+    if value.startswith("data:") or value.startswith("base64") or len(value) > 2000: return False
     try:
         parsed = urlparse(value)
         return parsed.scheme in ("http", "https") and bool(parsed.netloc)
-    except Exception:
-        return False
-
+    except Exception: return False
 
 def _normalize_image_url(raw: Any) -> Any:
-    """
-    Ensure we only use accessible URLs for concert images.
-    SerpAPI sometimes returns base64 or data URLs; those are rejected.
-    """
-    if not raw:
-        return None
-    if isinstance(raw, str) and _is_valid_image_url(raw):
-        return raw
+    if not raw: return None
+    if isinstance(raw, str) and _is_valid_image_url(raw): return raw
     if isinstance(raw, dict):
         for key in ("thumbnail", "image", "src"):
             v = raw.get(key)
-            if isinstance(v, str) and _is_valid_image_url(v):
-                return v
+            if isinstance(v, str) and _is_valid_image_url(v): return v
     return None
 
-
-def _parse_event_date(event: dict) -> Any:
-    """Parse event date from SerpAPI date.start_date and date.when. Prefer when for time."""
-    date_obj = event.get("date") or {}
-    when = (date_obj.get("when") or "").strip()
-    start_date = (date_obj.get("start_date") or "").strip()
-
-    # Try to get a full date from "when" (e.g. "Sun, Dec 7, 8:00 – 9:30 PM CST")
-    if when:
-        # Pattern: "Sun, Dec 7, 8:00" or "Dec 7, 8:00" or "Dec 2, 9:00 PM – Dec 30, 10:30 PM"
-        for part in when.split("–")[0].split(","):
-            part = part.strip()
-            try:
-                # "Dec 7" or "Dec 7 8:00"
-                parsed = datetime.strptime(part, "%b %d")
-            except ValueError:
-                try:
-                    parsed = datetime.strptime(part, "%b %d %I:%M")
-                except ValueError:
-                    try:
-                        parsed = datetime.strptime(part, "%b %d %I:%M %p")
-                    except ValueError:
-                        continue
-                year = datetime.now().year
-                if parsed < datetime.now():
-                    year += 1
-                return parsed.replace(year=year)
-            year = datetime.now().year
-            if parsed.replace(year=year) < datetime.now():
-                year += 1
-            return parsed.replace(year=year)
-
-    if start_date:
-        try:
-            parsed = datetime.strptime(start_date.strip(), "%b %d")
-            year = datetime.now().year
-            if parsed.replace(year=year) < datetime.now():
-                year += 1
-            return parsed.replace(year=year)
-        except ValueError:
-            pass
-    return None
-
+def _extract_price(event: dict) -> str:
+    ticket_info = event.get("ticket_info") or []
+    if ticket_info and isinstance(ticket_info, list):
+        price = ticket_info[0].get("price") or ticket_info[0].get("extracted_price")
+        if price: return f"${price}" if isinstance(price, (int, float)) else str(price)
+    return "See tickets"
 
 def _is_music_event(event: dict) -> bool:
-    """Heuristic: keep events that look like music/concerts, drop comedy/theater/etc."""
     title = (event.get("title") or "").lower()
     desc = (event.get("description") or "").lower()
     text = f"{title} {desc}"
-
-    for bad in NON_MUSIC_KEYWORDS:
-        if bad in text:
-            return False
-
-    for good in MUSIC_KEYWORDS:
-        if good in text:
-            return True
-
-    # Ticket sources often indicate music (Spotify, Ticketmaster, SeatGeek for concerts)
-    ticket_sources = [
-        (t.get("source") or "").lower()
-        for t in (event.get("ticket_info") or [])
-    ]
-    if "spotify" in str(ticket_sources) or "spotify.com" in text:
-        return True
-    if "ticketmaster" in str(ticket_sources) and ("concert" in text or "tour" in text or "band" in text):
-        return True
-
-    return False
-
-
-def _extract_price(event: dict) -> str:
-    """Get price string for display."""
-    ticket_info = event.get("ticket_info") or []
-    for t in ticket_info:
-        price = t.get("price") or t.get("extracted_price")
-        if price is not None:
-            if isinstance(price, (int, float)):
-                return f"${int(price)}+"
-            return str(price).strip()
-    return "See tickets"
-
+    if any(bad in text for bad in NON_MUSIC_KEYWORDS): return False
+    return any(good in text for good in MUSIC_KEYWORDS)
 
 def _clean_event_to_concert(raw: dict, index: int) -> dict:
-    """
-    Turn one SerpAPI event result into a clean concert-like object.
-    Uses normalized image URL (never base64).
-    """
     venue_obj = raw.get("venue") or {}
     venue_name = venue_obj.get("name") if isinstance(venue_obj, dict) else str(venue_obj)
-    if not venue_name and isinstance(raw.get("address"), list) and raw["address"]:
-        venue_name = raw["address"][0] if raw["address"] else "Austin, TX"
-
-    title = (raw.get("title") or "").strip() or "Concert"
+    
     image_url = _normalize_image_url(raw.get("thumbnail")) or _normalize_image_url(raw.get("image"))
-    if not image_url:
-        image_url = FALLBACK_IMAGE_URL  # optional: use None to have no image
+    if not image_url: image_url = FALLBACK_IMAGE_URL
 
-    event_date = _parse_event_date(raw)
-    date_str = event_date.isoformat() if event_date else None
-
+    # Date parsing
+    raw_date = raw.get("date", {})
+    start_date = raw_date.get("start_date")
+    
     return {
-        "name": title,
-        "artist": title,  # SerpAPI often doesn't separate; use title as artist
+        "id": raw.get("event_id"),
+        "name": (raw.get("title") or "").strip(),
         "venue": venue_name or "Austin, TX",
-        "date": date_str,
+        "date": start_date,
         "imageUrl": image_url,
-        "genre": "Concert",  # Could infer from keywords later
         "priceRange": _extract_price(raw),
-        "link": (raw.get("link") or "").strip() or None,
-        "description": (raw.get("description") or "").strip() or None,
-        "source_index": index,
+        "link": (raw.get("link") or "").strip(),
+        "description": (raw.get("description") or "").strip(),
     }
 
-
-def fetch_google_events(
-    query: str = DEFAULT_QUERY,
-    location: str = DEFAULT_LOCATION,
-    api_key: Any = None,
-    start: int = 0,
-) -> List[dict]:
-    """
-    Query SerpAPI Google Events and return raw events_results list.
-    """
-    key = api_key or os.environ.get("SERPAPI_API_KEY")
+def fetch_google_events_page(query: str, start: int = 0, date_filter: str = None) -> List[dict]:
+    """Fetches a single page (10 results) from SerpAPI."""
+    key = os.environ.get("SERPAPI_API_KEY")
     if not key:
+        print("❌ ERROR: SERPAPI_API_KEY not found in environment variables.")
         return []
 
     params = {
         "engine": "google_events",
         "q": query,
-        "location": location,
         "hl": "en",
         "gl": "us",
         "api_key": key,
-        "start": start,
+        "start": start,  # Pagination offset
     }
+    
+    # Optional date filters: 'date:today', 'date:next_month', etc.
+    if date_filter:
+        params["htichips"] = f"date:{date_filter}"
+
     try:
         r = requests.get(SERPAPI_BASE, params=params, timeout=15)
         r.raise_for_status()
-        data = r.json()
-        return (data.get("events_results") or [])
-    except Exception:
+        return r.json().get("events_results", [])
+    except Exception as e:
+        print(f"❌ SerpAPI Request Failed: {e}")
         return []
 
-
-def get_concerts_in_austin(
-    query: str = DEFAULT_QUERY,
-    from_date: Any = None,
-    music_only: bool = True,
-    max_results: int = 50,
-) -> List[dict]:
+def get_concerts_in_austin(music_only: bool = True, max_results: int = 50) -> List[dict]:
     """
-    Fetch "Concerts in Austin" from SerpAPI, clean JSON, normalize images, and filter.
-
-    - Cleans messy JSON into a nice list of concert-like objects.
-    - Ensures imageUrl is always an accessible URL (never base64).
-    - If music_only: keeps only events that look like music/concerts.
-    - If from_date: only events on or after that date (default: today).
+    Loops through multiple pages to find concerts later in the year.
     """
-    raw_events = fetch_google_events(query=query)
-    if not raw_events:
-        return []
+    all_cleaned = []
+    # We fetch in chunks of 10. To get a full year, we loop several times.
+    # Note: SerpAPI counts each page as 1 search credit.
+    pages_to_fetch = 5 
+    
+    print(f"🚀 Fetching up to {pages_to_fetch} pages of events...")
 
-    from_date = from_date or datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    cleaned: list[dict] = []
-
-    for i, ev in enumerate(raw_events):
-        if music_only and not _is_music_event(ev):
-            continue
-        concert = _clean_event_to_concert(ev, i)
-        # Date filter
-        if concert.get("date"):
-            try:
-                ev_dt = datetime.fromisoformat(concert["date"].replace("Z", "+00:00"))
-                # naive compare if from_date is naive
-                if ev_dt.replace(tzinfo=None) < from_date:
-                    continue
-            except (ValueError, TypeError):
-                pass
-        cleaned.append(concert)
-        if len(cleaned) >= max_results:
+    for page in range(pages_to_fetch):
+        start_offset = page * 10
+        raw_events = fetch_google_events_page(DEFAULT_QUERY, start=start_offset)
+        
+        if not raw_events:
             break
+            
+        for i, ev in enumerate(raw_events):
+            if _is_music_event(ev):
+                concert = _clean_event_to_concert(ev, start_offset + i)
+                all_cleaned.append(concert)
+                
+            if len(all_cleaned) >= max_results:
+                return all_cleaned
 
-    return cleaned
+    return all_cleaned
