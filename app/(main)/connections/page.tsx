@@ -1,218 +1,79 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { getUserConnections, updateConnectionStatus } from '@/lib/firebase/firestore';
-import { getUserProfile } from '@/lib/firebase/auth';
-import { getConcert } from '@/lib/firebase/firestore';
-import { useAuth } from '@/context/auth-context';
-import { getInitials, formatRelativeTime } from '@/lib/utils';
-import type { Connection, UserProfile, Concert } from '@/lib/types';
-import { Check, X, MessageSquare } from 'lucide-react';
-
-interface EnrichedConnection extends Connection {
-  otherUser?: UserProfile;
-  concert?: Concert;
-}
+import { Users, UserCheck, Clock, MessageSquare } from 'lucide-react';
 
 export default function ConnectionsPage() {
-  const { user } = useAuth();
-  const [connections, setConnections] = useState<EnrichedConnection[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!user) return;
-
-    async function loadConnections() {
-      try {
-        const data = await getUserConnections(user!.uid);
-        
-        // Enrich with user profiles and concert data
-        const enriched = await Promise.all(
-          data.map(async (conn) => {
-            const otherUserId =
-              conn.requesterId === user!.uid ? conn.recipientId : conn.requesterId;
-            const [otherUser, concert] = await Promise.all([
-              getUserProfile(otherUserId),
-              getConcert(conn.concertId),
-            ]);
-            return { ...conn, otherUser: otherUser || undefined, concert: concert || undefined };
-          })
-        );
-
-        setConnections(enriched);
-      } catch (err) {
-        console.error('Failed to load connections:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadConnections();
-  }, [user]);
-
-  const handleAccept = async (connectionId: string) => {
-    try {
-      await updateConnectionStatus(connectionId, 'accepted');
-      setConnections((prev) =>
-        prev.map((c) => (c.id === connectionId ? { ...c, status: 'accepted' } : c))
-      );
-    } catch (err) {
-      console.error('Failed to accept connection:', err);
-    }
-  };
-
-  const handleDecline = async (connectionId: string) => {
-    try {
-      await updateConnectionStatus(connectionId, 'declined');
-      setConnections((prev) =>
-        prev.map((c) => (c.id === connectionId ? { ...c, status: 'declined' } : c))
-      );
-    } catch (err) {
-      console.error('Failed to decline connection:', err);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-      </div>
-    );
-  }
-
-  const pendingReceived = connections.filter(
-    (c) => c.status === 'pending' && c.recipientId === user?.uid
-  );
-  const pendingSent = connections.filter(
-    (c) => c.status === 'pending' && c.requesterId === user?.uid
-  );
-  const accepted = connections.filter((c) => c.status === 'accepted');
-
   return (
-    <div className="space-y-8">
-      <h1 className="text-2xl font-bold text-gray-900">Connections</h1>
+    <div>
+      {/* Page Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Connections</h1>
+        <p className="text-gray-500 mt-1">
+          Manage your concert connection requests
+        </p>
+      </div>
 
-      {/* Pending Received */}
-      {pendingReceived.length > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Connection Requests ({pendingReceived.length})
+      {/* Incoming Requests Placeholder */}
+      <section className="mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          <Clock size={18} className="text-yellow-500" />
+          <h2 className="text-lg font-semibold text-gray-900">
+            Incoming Requests
           </h2>
-          <div className="space-y-3">
-            {pendingReceived.map((conn) => (
-              <div
-                key={conn.id}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center gap-4"
-              >
-                <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-medium">
-                  {getInitials(conn.otherUser?.displayName || 'U')}
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900">
-                    {conn.otherUser?.displayName || 'User'}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    For: {conn.concert?.name || 'Concert'}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    {formatRelativeTime(conn.createdAt)}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleAccept(conn.id)}
-                    className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200"
-                    title="Accept"
-                  >
-                    <Check size={20} />
-                  </button>
-                  <button
-                    onClick={() => handleDecline(conn.id)}
-                    className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"
-                    title="Decline"
-                  >
-                    <X size={20} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+          <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">
+            0
+          </span>
+        </div>
+        
+        <div className="bg-white rounded-xl border border-dashed border-gray-300 p-6 text-center">
+          <p className="text-gray-400 text-sm">
+            Incoming connection requests will appear here.<br />
+            You can accept or decline each request.
+          </p>
+        </div>
+      </section>
 
-      {/* Pending Sent */}
-      {pendingSent.length > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Sent Requests ({pendingSent.length})
+      {/* Sent Requests Placeholder */}
+      <section className="mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          <Users size={18} className="text-blue-500" />
+          <h2 className="text-lg font-semibold text-gray-900">
+            Sent Requests
           </h2>
-          <div className="space-y-3">
-            {pendingSent.map((conn) => (
-              <div
-                key={conn.id}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center gap-4"
-              >
-                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-medium">
-                  {getInitials(conn.otherUser?.displayName || 'U')}
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900">
-                    {conn.otherUser?.displayName || 'User'}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    For: {conn.concert?.name || 'Concert'}
-                  </p>
-                </div>
-                <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-sm rounded-full">
-                  Pending
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+            0
+          </span>
+        </div>
+        
+        <div className="bg-white rounded-xl border border-dashed border-gray-300 p-6 text-center">
+          <p className="text-gray-400 text-sm">
+            Your pending connection requests will appear here.<br />
+            Waiting for the other person to respond.
+          </p>
+        </div>
+      </section>
 
-      {/* Accepted */}
+      {/* Accepted Connections Placeholder */}
       <section>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Your Connections ({accepted.length})
-        </h2>
-        {accepted.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-            <p className="text-gray-500">No connections yet</p>
-            <p className="text-sm text-gray-400 mt-1">
-              Join a concert room and connect with others!
-            </p>
+        <div className="flex items-center gap-2 mb-4">
+          <UserCheck size={18} className="text-green-500" />
+          <h2 className="text-lg font-semibold text-gray-900">
+            Your Connections
+          </h2>
+          <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
+            0
+          </span>
+        </div>
+        
+        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <MessageSquare className="w-8 h-8 text-gray-400" />
           </div>
-        ) : (
-          <div className="space-y-3">
-            {accepted.map((conn) => (
-              <div
-                key={conn.id}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center gap-4"
-              >
-                <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-medium">
-                  {getInitials(conn.otherUser?.displayName || 'U')}
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900">
-                    {conn.otherUser?.displayName || 'User'}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    {conn.concert?.name || 'Concert'}
-                  </p>
-                </div>
-                <Link
-                  href={`/threads?connection=${conn.id}`}
-                  className="p-2 bg-primary-100 text-primary-600 rounded-lg hover:bg-primary-200"
-                >
-                  <MessageSquare size={20} />
-                </Link>
-              </div>
-            ))}
-          </div>
-        )}
+          <h3 className="font-medium text-gray-900 mb-2">No connections yet</h3>
+          <p className="text-gray-500 text-sm max-w-sm mx-auto">
+            Join a concert room and connect with others who share your music taste!
+          </p>
+        </div>
       </section>
     </div>
   );

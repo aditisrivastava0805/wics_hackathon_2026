@@ -1,8 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
+import { AuthGuard } from '@/components/auth/AuthGuard';
+import { UTEmailGuard } from '@/components/auth/UTEmailGuard';
 import { signOut } from '@/lib/firebase/auth';
 import { Home, Users, MessageSquare, User, LogOut } from 'lucide-react';
 
@@ -13,40 +15,13 @@ const navItems = [
   { href: '/profile', label: 'Profile', icon: User },
 ];
 
-export default function MainLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function MainLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-600 mb-4">Please log in to continue</p>
-          <Link
-            href="/login"
-            className="px-6 py-2 bg-primary-600 text-white rounded-lg"
-          >
-            Log In
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const router = useRouter();
 
   const handleSignOut = async () => {
     await signOut();
+    router.push('/login');
   };
 
   return (
@@ -59,7 +34,7 @@ export default function MainLayout({
           </Link>
           <button
             onClick={handleSignOut}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
           >
             <LogOut size={18} />
             <span className="hidden sm:inline">Sign Out</span>
@@ -96,5 +71,19 @@ export default function MainLayout({
         </div>
       </nav>
     </div>
+  );
+}
+
+export default function MainLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <AuthGuard>
+      <UTEmailGuard>
+        <MainLayoutContent>{children}</MainLayoutContent>
+      </UTEmailGuard>
+    </AuthGuard>
   );
 }
