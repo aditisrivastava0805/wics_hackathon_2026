@@ -53,17 +53,12 @@ export async function getConcert(concertId: string): Promise<Concert | null> {
 // ============ CONCERT ROOM ============
 
 export async function joinConcertRoom(concertId: string, userId: string): Promise<void> {
+  const { setDoc } = await import('firebase/firestore');
   const memberRef = doc(db, 'concerts', concertId, 'members', userId);
-  await updateDoc(memberRef, {
+  await setDoc(memberRef, {
     userId,
     joinedAt: serverTimestamp(),
-  }).catch(() => {
-    // Document doesn't exist, create it
-    return addDoc(collection(db, 'concerts', concertId, 'members'), {
-      userId,
-      joinedAt: serverTimestamp(),
-    });
-  });
+  }, { merge: true });
 }
 
 export async function leaveConcertRoom(concertId: string, userId: string): Promise<void> {
@@ -79,6 +74,21 @@ export async function getRoomMembers(concertId: string): Promise<RoomMember[]> {
     id: doc.id,
     ...doc.data(),
   })) as RoomMember[];
+}
+
+export function subscribeToRoomMembers(
+  concertId: string,
+  callback: (members: RoomMember[]) => void
+): () => void {
+  const membersRef = collection(db, 'concerts', concertId, 'members');
+  
+  return onSnapshot(membersRef, (snapshot) => {
+    const members = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as RoomMember[];
+    callback(members);
+  });
 }
 
 export function subscribeToRoomMessages(
