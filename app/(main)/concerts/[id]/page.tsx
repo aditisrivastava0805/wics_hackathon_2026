@@ -17,6 +17,7 @@ import { calculateUserCompatibility } from '@/lib/matching';
 import { formatDate } from '@/lib/utils';
 import { MemberCard, MemberCardSkeleton } from '@/components/room/MemberCard';
 import { RoomChat } from '@/components/room/RoomChat';
+import { ProfileModal } from '@/components/profile';
 import type { Concert, RoomMember, UserProfile, Connection } from '@/lib/types';
 import { ArrowLeft, Users, Calendar, MapPin, DollarSign, AlertCircle, LogIn } from 'lucide-react';
 
@@ -34,6 +35,7 @@ export default function ConcertRoomPage() {
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
 
   // Fetch profiles for members
   const fetchMemberProfiles = useCallback(async (membersList: RoomMember[]) => {
@@ -393,6 +395,7 @@ export default function ConcertRoomPage() {
                           ? () => handleRequestConnection(member.userId)
                           : undefined
                       }
+                      onViewProfile={!isCurrentUser ? () => setViewingProfileId(member.userId) : undefined}
                     />
                   );
                 })}
@@ -417,6 +420,14 @@ export default function ConcertRoomPage() {
           />
         </div>
       </div>
+
+      {/* Profile Modal */}
+      {viewingProfileId && (
+        <ProfileModal
+          userId={viewingProfileId}
+          onClose={() => setViewingProfileId(null)}
+        />
+      )}
     </div>
   );
 }
