@@ -10,6 +10,7 @@ interface MemberCardProps {
   isCurrentUser?: boolean;
   connectionStatus?: 'none' | 'pending' | 'accepted';
   onRequestConnection?: () => void;
+  onViewProfile?: () => void;
 }
 
 /**
@@ -21,9 +22,16 @@ export function MemberCard({
   isCurrentUser,
   connectionStatus = 'none',
   onRequestConnection,
+  onViewProfile,
 }: MemberCardProps) {
   return (
-    <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+    <div
+      role={onViewProfile ? 'button' : undefined}
+      tabIndex={onViewProfile ? 0 : undefined}
+      onClick={onViewProfile}
+      onKeyDown={onViewProfile ? (e) => e.key === 'Enter' && onViewProfile() : undefined}
+      className={`flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors ${onViewProfile ? 'cursor-pointer' : ''}`}
+    >
       {/* Avatar */}
       <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-medium flex-shrink-0">
         {profile.avatarUrl ? (
@@ -73,7 +81,7 @@ export function MemberCard({
 
       {/* Action button */}
       {!isCurrentUser && (
-        <div>
+        <div onClick={(e) => e.stopPropagation()}>
           {connectionStatus === 'none' && onRequestConnection && (
             <button
               onClick={onRequestConnection}

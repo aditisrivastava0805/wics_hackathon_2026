@@ -106,6 +106,15 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+### Demo Image Mode (optional)
+
+For demos, concert cards can use crisp local images instead of low-res SerpAPI thumbnails.
+
+- **Turn on:** In `frontend/.env.local`, set `NEXT_PUBLIC_DEMO_IMAGES=true`. Restart the dev server (`npm run dev`).
+- **Turn off:** Set `NEXT_PUBLIC_DEMO_IMAGES=false` or remove the variable (default is off). Restart the dev server.
+
+Images are served from `frontend/public/demo/artists/` (`01.jpg` … `12.jpg`). Artists are mapped deterministically to one of these files. To add more demo images, add more JPGs (e.g. `13.jpg`, `14.jpg`) in `public/demo/artists/` and update `DEMO_IMAGE_COUNT` in `frontend/lib/demoImages.ts` to match. Use the same naming: two-digit zero-padded (e.g. `13.jpg`). You can replace the default placeholders by overwriting `01.jpg` … `12.jpg` or run `node scripts/generate-demo-images.js` to regenerate minimal placeholders.
+
 ## Project Structure
 
 ```

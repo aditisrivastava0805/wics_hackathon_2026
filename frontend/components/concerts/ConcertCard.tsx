@@ -1,8 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Calendar, MapPin, DollarSign } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import { getDemoImageForConcert, isDemoImageMode, isLowQualityImageUrl } from '@/lib/demoImages';
 import type { Concert } from '@/lib/types';
 
 interface ConcertCardProps {
@@ -15,6 +17,18 @@ function concertRoomHref(concert: Concert): string | null {
   const id = concert?.id;
   if (id == null || String(id).trim() === '' || String(id) === 'undefined' || String(id) === 'null') return null;
   return `/concerts/${encodeURIComponent(String(id))}`;
+}
+
+/** Poster fallback when no suitable image (ticket-stub style). */
+const FALLBACK_POSTER =
+  'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800';
+
+function getConcertImageSrc(concert: Concert): string {
+  if (isDemoImageMode()) return getDemoImageForConcert(concert.id, concert.artist);
+  if (concert.artistImageUrl?.trim()) return concert.artistImageUrl!.trim();
+  const main = concert.imageUrl?.trim();
+  if (main && !isLowQualityImageUrl(main)) return main;
+  return FALLBACK_POSTER;
 }
 
 /**
@@ -30,19 +44,30 @@ export function ConcertCard({ concert, matchScore }: ConcertCardProps) {
       {...wrapperProps}
       className="group bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md hover:border-gray-300 transition-all block"
     >
-      {/* Image */}
+      {/* Image: demo mode → local <img>; else Next Image for remote URLs */}
       <div className="aspect-video bg-gray-100 relative overflow-hidden">
-        {concert.imageUrl ? (
-          <img
-            src={concert.imageUrl}
-            alt={concert.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <span className="text-gray-400 text-sm">No image</span>
-          </div>
-        )}
+        {(() => {
+          const src = getConcertImageSrc(concert);
+          const isDemoLocal = src.startsWith('/demo/');
+          if (isDemoLocal) {
+            return (
+              <img
+                src={src}
+                alt={concert.name}
+                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              />
+            );
+          }
+          return (
+            <Image
+              src={src}
+              alt={concert.name}
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className="object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          );
+        })()}
         
         {/* Match score badge */}
         {matchScore !== undefined && matchScore > 50 && (

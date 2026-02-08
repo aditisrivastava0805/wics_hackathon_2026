@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useAuth } from '@/context/auth-context';
 import { User, Mail, Music, DollarSign, Sparkles } from 'lucide-react';
 
@@ -82,17 +83,18 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Edit Form Placeholder */}
-      <div className="bg-white rounded-xl border border-dashed border-gray-300 p-6 text-center">
-        <p className="text-gray-500 mb-4">
-          Profile editing form will be implemented here.
+      {/* Edit preferences (onboarding flow) */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h3 className="font-medium text-gray-900 mb-2">Update preferences</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          Change your music preferences, budget, concert vibes, and more.
         </p>
-        <button
-          disabled
-          className="px-6 py-2 bg-gray-200 text-gray-400 rounded-lg"
+        <Link
+          href="/onboarding"
+          className="inline-flex items-center gap-2 px-6 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors"
         >
-          Save Changes
-        </button>
+          Edit profile & preferences
+        </Link>
       </div>
     </div>
   );

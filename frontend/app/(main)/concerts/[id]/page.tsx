@@ -17,6 +17,7 @@ import {
 import { formatDate } from '@/lib/utils';
 import { MemberCard, MemberCardSkeleton } from '@/components/room/MemberCard';
 import { RoomChat } from '@/components/room/RoomChat';
+import { ProfileModal } from '@/components/profile/ProfileModal';
 import type { Concert, UserProfile } from '@/lib/types';
 import { ArrowLeft, Users, Calendar, MapPin, DollarSign, AlertCircle, LogIn } from 'lucide-react';
 
@@ -68,6 +69,7 @@ export default function ConcertRoomPage() {
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [profileModalUser, setProfileModalUser] = useState<UserProfile | null>(null);
 
   // Load concert from backend events (match by string id)
   useEffect(() => {
@@ -374,6 +376,7 @@ export default function ConcertRoomPage() {
                       isCurrentUser={isCurrentUser}
                       compatibilityScore={isCurrentUser ? undefined : person.score}
                       connectionStatus={connectionStatus}
+                      onViewProfile={!isCurrentUser ? () => setProfileModalUser(displayProfile) : undefined}
                       onRequestConnection={
                         hasJoined && connectionStatus === 'none' && !isCurrentUser
                           ? () => handleRequestConnection(person.email)
@@ -405,6 +408,8 @@ export default function ConcertRoomPage() {
           />
         </div>
       </div>
+
+      <ProfileModal profile={profileModalUser} onClose={() => setProfileModalUser(null)} />
     </div>
   );
 }

@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { getUserConnections, getUserThreads } from '@/lib/firebase/firestore';
+import { getUserConnections, getUserThreads, updateConnectionStatus } from '@/lib/firebase/firestore';
 import { getUserProfile } from '@/lib/firebase/auth';
 import type { Connection, UserProfile } from '@/lib/types';
-import { Users, UserCheck, Clock, MessageSquare, Link as LinkIcon } from 'lucide-react';
+import { Users, UserCheck, Clock, MessageSquare, Link as LinkIcon, Check, X } from 'lucide-react';
 import Link from 'next/link';
 
 type ConnectionWithOther = Connection & { otherDisplayName: string; otherUid: string; isIncoming: boolean; threadId?: string };
@@ -62,6 +62,48 @@ export default function ConnectionsPage() {
   const sent = connections.filter((c) => !c.isIncoming && c.status === 'pending');
   const accepted = connections.filter((c) => c.status === 'accepted');
 
+  const [actingId, setActingId] = useState<string | null>(null);
+
+  const handleAccept = useCallback(async (connectionId: string) => {
+    setActingId(connectionId);
+    try {
+      await updateConnectionStatus(connectionId, 'accepted');
+      const list = await getUserConnections(user!.uid);
+      const threads = await getUserThreads(user!.uid);
+      const map = new Map(threads.map((t) => [t.connectionId, t.id]));
+      const withOther: ConnectionWithOther[] = [];
+      for (const c of list) {
+        const otherUid = c.requesterId === user!.uid ? c.recipientId : c.requesterId;
+        const isIncoming = c.recipientId === user!.uid;
+        let otherDisplayName = 'Unknown';
+        try {
+          const profile = await getUserProfile(otherUid);
+          if (profile?.displayName) otherDisplayName = profile.displayName;
+        } catch {
+          // ignore
+        }
+        withOther.push({ ...c, otherDisplayName, otherUid, isIncoming, threadId: map.get(c.id) });
+      }
+      setConnections(withOther);
+    } catch (err) {
+      console.error('Accept failed:', err);
+    } finally {
+      setActingId(null);
+    }
+  }, [user]);
+
+  const handleDecline = useCallback(async (connectionId: string) => {
+    setActingId(connectionId);
+    try {
+      await updateConnectionStatus(connectionId, 'declined');
+      setConnections((prev) => prev.filter((c) => c.id !== connectionId));
+    } catch (err) {
+      console.error('Decline failed:', err);
+    } finally {
+      setActingId(null);
+    }
+  }, []);
+
   return (
     <div>
       <div className="mb-6">
@@ -97,10 +139,27 @@ export default function ConnectionsPage() {
                 {incoming.map((c) => (
                   <li
                     key={c.id}
-                    className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between"
+                    className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between gap-3"
                   >
-                    <span className="font-medium text-gray-900">{c.otherDisplayName}</span>
-                    <span className="text-sm text-gray-500">Concert room</span>
+                    <span className="font-medium text-gray-900 truncate">{c.otherDisplayName}</span>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => handleAccept(c.id)}
+                        disabled={actingId === c.id}
+                        className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
+                        title="Accept"
+                      >
+                        <Check size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleDecline(c.id)}
+                        disabled={actingId === c.id}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        title="Decline"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>

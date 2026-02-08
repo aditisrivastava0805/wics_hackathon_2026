@@ -37,6 +37,8 @@ export interface Concert {
   venue: string;
   date: Timestamp;
   imageUrl: string | null;
+  /** Optional higher-quality artist/event image (e.g. from backend). */
+  artistImageUrl?: string | null;
   genre: string;
   priceRange: string;
   createdAt: Timestamp;

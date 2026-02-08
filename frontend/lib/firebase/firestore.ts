@@ -149,17 +149,22 @@ export async function updateConnectionStatus(
     updatedAt: serverTimestamp(),
   });
 
-  // If accepted, create a private thread
+  // If accepted, create a private thread (only if one doesn't exist yet)
   if (status === 'accepted') {
     const connectionSnap = await getDoc(connectionRef);
     if (connectionSnap.exists()) {
       const connection = connectionSnap.data();
-      await createThread(
-        connection.concertId,
-        connectionId,
-        connection.requesterId,
-        connection.recipientId
+      const existing = await getDocs(
+        query(collection(db, 'threads'), where('connectionId', '==', connectionId))
       );
+      if (existing.empty) {
+        await createThread(
+          connection.concertId,
+          connectionId,
+          connection.requesterId,
+          connection.recipientId
+        );
+      }
     }
   }
 }
