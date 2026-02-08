@@ -18,6 +18,7 @@ export interface UserProfile {
   avatarUrl: string | null;
   bio: string | null;
   spotifyConnected: boolean;
+  lastfmUsername?: string | null;
   musicPreferences: MusicPreferences;
   budgetRange: BudgetRange;
   genderPref: GenderPref;
@@ -102,16 +103,3 @@ export interface ChecklistItem {
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
-
-// ============ API TYPES ============
-
-export interface ApiError {
-  error: string;
-  message: string;
-}
-
-export interface ApiSuccess<T> {
-  data: T;
-}
-
-export type ApiResponse<T> = ApiSuccess<T> | ApiError;

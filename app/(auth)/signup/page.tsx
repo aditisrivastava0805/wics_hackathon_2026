@@ -37,9 +37,16 @@ export default function SignupPage() {
 
     try {
       await signUp(email, password, displayName);
+      // Sync to backend so room/connection features work (onboarding will update preferences)
+      try {
+        const { registerUser } = await import('@/lib/backend-client');
+        await registerUser({ email, name: displayName });
+      } catch {
+        // Backend may be unavailable
+      }
       router.push('/onboarding');
-    } catch (err: any) {
-      setError(err.message || 'Failed to create account');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to create account');
     } finally {
       setLoading(false);
     }

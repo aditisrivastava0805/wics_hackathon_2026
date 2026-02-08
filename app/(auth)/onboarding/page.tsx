@@ -20,7 +20,6 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
-  // Preferences state
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [favoriteArtists, setFavoriteArtists] = useState('');
   const [budgetRange, setBudgetRange] = useState<BudgetRange>('flexible');
@@ -45,16 +44,30 @@ export default function OnboardingPage() {
     setLoading(true);
     try {
       const userRef = doc(db, 'users', user.uid);
+      const musicPrefs = {
+        genres: selectedGenres,
+        artists: favoriteArtists.split(',').map((a) => a.trim()).filter(Boolean),
+      };
       await updateDoc(userRef, {
-        musicPreferences: {
-          genres: selectedGenres,
-          artists: favoriteArtists.split(',').map((a) => a.trim()).filter(Boolean),
-        },
+        musicPreferences: musicPrefs,
         budgetRange,
         genderPref,
         concertVibes,
         updatedAt: serverTimestamp(),
       });
+      // Sync to backend (Flask) so room/connection features work
+      try {
+        const { registerUser } = await import('@/lib/backend-client');
+        await registerUser({
+          email: user.email!,
+          name: user.displayName ?? user.email?.split('@')[0],
+          music_preferences: musicPrefs,
+          budget,
+          concert_vibes: concertVibes,
+        });
+      } catch {
+        // Backend may be unavailable; Firestore profile is saved
+      }
       router.push('/concerts');
     } catch (err) {
       console.error('Failed to save preferences:', err);
@@ -123,7 +136,7 @@ export default function OnboardingPage() {
         {step === 2 && (
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-4">Your concert preferences</h2>
-            
+
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">Budget Range</label>
               <div className="space-y-2">
@@ -192,7 +205,7 @@ export default function OnboardingPage() {
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-4">What&apos;s your concert vibe?</h2>
             <p className="text-gray-600 mb-4">Select all that apply</p>
-            
+
             <div className="space-y-3 mb-6">
               {VIBES.map((vibe) => (
                 <button

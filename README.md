@@ -31,7 +31,8 @@ Encore is a concert-first social platform that helps UT Austin students connect 
 
 ```bash
 git clone <repo-url>
-cd encore
+cd wics_hackathon_2026
+cd frontend
 npm install
 ```
 
@@ -48,6 +49,7 @@ npm install
 Copy the example env file and fill in your Firebase credentials:
 
 ```bash
+cd frontend
 cp .env.local.example .env.local
 ```
 
@@ -70,9 +72,10 @@ FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE K
 
 ### 4. Seed Data
 
-Seed the database with mock concerts:
+From the `frontend` folder, seed the database with mock concerts:
 
 ```bash
+cd frontend
 npm run seed
 ```
 
@@ -82,9 +85,22 @@ To clear and reseed:
 npm run seed -- --clear
 ```
 
-### 5. Run Development Server
+**Demo users and messages** (so room members and chat show seed data via the backend):
+
+From the **repo root**, with the Flask backend running (so concert ids match the app list):
 
 ```bash
+npm run seed:demo
+```
+
+This creates demo Auth users, mirrors profiles to `users/{email}` for the backend, syncs concert ids from `GET /api/events`, and seeds room members + room messages in the format the backend expects. Log in as `demo@utexas.edu` / `demo123456` to see seeded rooms and chat. Clear with `npm run seed:demo -- --clear`.
+
+### 5. Run Development Server
+
+From the `frontend` folder:
+
+```bash
+cd frontend
 npm run dev
 ```
 
@@ -93,25 +109,28 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ## Project Structure
 
 ```
-├── app/
-│   ├── (auth)/          # Login, Signup, Onboarding pages
-│   ├── (main)/          # Authenticated pages (concerts, threads, etc.)
-│   ├── api/             # API route handlers
-│   ├── layout.tsx       # Root layout
-│   └── page.tsx         # Landing page
-├── components/
-│   └── ui/              # Reusable UI components
-├── context/
-│   └── auth-context.tsx # Auth state provider
-├── hooks/               # Custom React hooks
-├── lib/
-│   ├── firebase/        # Firebase config and helpers
-│   ├── types.ts         # TypeScript types
-│   ├── utils.ts         # Utility functions
-│   └── matching.ts      # Matching score logic
-├── scripts/
-│   └── seed.ts          # Database seeding script
-└── middleware.ts        # Next.js middleware
+├── frontend/            # Next.js app
+│   ├── app/
+│   │   ├── (auth)/      # Login, Signup, Onboarding pages
+│   │   ├── (main)/      # Authenticated pages (concerts, threads, etc.)
+│   │   ├── api/         # API route handlers
+│   │   ├── layout.tsx   # Root layout
+│   │   └── page.tsx     # Landing page
+│   ├── components/
+│   │   └── ui/          # Reusable UI components
+│   ├── context/
+│   │   └── auth-context.tsx
+│   ├── hooks/
+│   ├── lib/
+│   │   ├── firebase/    # Firebase config and helpers
+│   │   ├── types.ts
+│   │   ├── utils.ts
+│   │   └── matching.ts
+│   ├── scripts/
+│   │   └── seed.ts
+│   └── middleware.ts
+├── backend/             # Flask API (events, matching, rooms)
+└── docs/
 ```
 
 ## Firebase Security Rules

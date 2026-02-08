@@ -64,3 +64,27 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
   
   return null;
 }
+
+export interface ProfileUpdateData {
+  displayName?: string;
+  bio?: string | null;
+  avatarUrl?: string | null;
+  musicPreferences?: {
+    genres: string[];
+    artists: string[];
+  };
+  budgetRange?: 'under40' | '40to80' | 'flexible';
+  genderPref?: 'any' | 'same';
+  concertVibes?: ('moshPit' | 'chillBalcony' | 'indieListening')[];
+}
+
+export async function updateUserProfile(
+  userId: string,
+  updates: ProfileUpdateData
+): Promise<void> {
+  const docRef = doc(db, 'users', userId);
+  await setDoc(docRef, {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+}

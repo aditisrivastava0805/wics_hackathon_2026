@@ -50,20 +50,41 @@ export async function getConcert(concertId: string): Promise<Concert | null> {
   return null;
 }
 
+export async function getUserJoinedConcerts(userId: string): Promise<Concert[]> {
+  // Get all concerts first
+  const concertsSnapshot = await getDocs(collection(db, 'concerts'));
+  const joinedConcerts: Concert[] = [];
+
+  // Check each concert's members subcollection
+  for (const concertDoc of concertsSnapshot.docs) {
+    const memberRef = doc(db, 'concerts', concertDoc.id, 'members', userId);
+    const memberSnap = await getDoc(memberRef);
+    
+    if (memberSnap.exists()) {
+      joinedConcerts.push({
+        id: concertDoc.id,
+        ...concertDoc.data(),
+      } as Concert);
+    }
+  }
+
+  // Sort by date
+  return joinedConcerts.sort((a, b) => {
+    const dateA = a.date?.toDate?.() || new Date(0);
+    const dateB = b.date?.toDate?.() || new Date(0);
+    return dateA.getTime() - dateB.getTime();
+  });
+}
+
 // ============ CONCERT ROOM ============
 
 export async function joinConcertRoom(concertId: string, userId: string): Promise<void> {
+  const { setDoc } = await import('firebase/firestore');
   const memberRef = doc(db, 'concerts', concertId, 'members', userId);
-  await updateDoc(memberRef, {
+  await setDoc(memberRef, {
     userId,
     joinedAt: serverTimestamp(),
-  }).catch(() => {
-    // Document doesn't exist, create it
-    return addDoc(collection(db, 'concerts', concertId, 'members'), {
-      userId,
-      joinedAt: serverTimestamp(),
-    });
-  });
+  }, { merge: true });
 }
 
 export async function leaveConcertRoom(concertId: string, userId: string): Promise<void> {
@@ -79,6 +100,21 @@ export async function getRoomMembers(concertId: string): Promise<RoomMember[]> {
     id: doc.id,
     ...doc.data(),
   })) as RoomMember[];
+}
+
+export function subscribeToRoomMembers(
+  concertId: string,
+  callback: (members: RoomMember[]) => void
+): () => void {
+  const membersRef = collection(db, 'concerts', concertId, 'members');
+  
+  return onSnapshot(membersRef, (snapshot) => {
+    const members = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as RoomMember[];
+    callback(members);
+  });
 }
 
 export function subscribeToRoomMessages(
@@ -221,6 +257,17 @@ export async function getUserThreads(userId: string): Promise<Thread[]> {
     id: doc.id,
     ...doc.data(),
   })) as Thread[];
+}
+
+export async function getThreadByConnectionId(connectionId: string): Promise<Thread | null> {
+  const threadsRef = collection(db, 'threads');
+  const q = query(threadsRef, where('connectionId', '==', connectionId));
+  const snapshot = await getDocs(q);
+  
+  if (snapshot.empty) return null;
+  
+  const doc = snapshot.docs[0];
+  return { id: doc.id, ...doc.data() } as Thread;
 }
 
 export function subscribeToThreadMessages(
