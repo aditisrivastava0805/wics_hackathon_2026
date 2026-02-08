@@ -10,14 +10,25 @@ interface ConcertCardProps {
   matchScore?: number;
 }
 
+/** Build concert room URL; only valid when id is present */
+function concertRoomHref(concert: Concert): string | null {
+  const id = concert?.id;
+  if (id == null || String(id).trim() === '' || String(id) === 'undefined' || String(id) === 'null') return null;
+  return `/concerts/${encodeURIComponent(String(id))}`;
+}
+
 /**
  * ConcertCard - Displays a concert with image, details, and optional match score
  */
 export function ConcertCard({ concert, matchScore }: ConcertCardProps) {
+  const href = concertRoomHref(concert);
+  const Wrapper = href ? Link : 'div';
+  const wrapperProps = href ? { href } : {};
+
   return (
-    <Link
-      href={`/concerts/${concert.id}`}
-      className="group bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md hover:border-gray-300 transition-all"
+    <Wrapper
+      {...wrapperProps}
+      className="group bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md hover:border-gray-300 transition-all block"
     >
       {/* Image */}
       <div className="aspect-video bg-gray-100 relative overflow-hidden">
@@ -80,7 +91,7 @@ export function ConcertCard({ concert, matchScore }: ConcertCardProps) {
           </span>
         </div>
       </div>
-    </Link>
+    </Wrapper>
   );
 }
 

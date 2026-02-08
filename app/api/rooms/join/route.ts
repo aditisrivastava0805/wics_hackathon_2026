@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,18 +10,7 @@ export async function POST(request: NextRequest) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    const text = await res.text();
-    let data: Record<string, unknown> = { error: 'Failed to join room' };
-    if (text && text.trim() !== '') {
-      try {
-        data = JSON.parse(text) as Record<string, unknown>;
-      } catch {
-        data = { error: text.slice(0, 200) || 'Invalid response' };
-      }
-    }
-    if (!res.ok) {
-      return NextResponse.json(data, { status: res.status >= 400 ? res.status : 500 });
-    }
+    const data = await res.json();
     return NextResponse.json(data, { status: res.status });
   } catch (error) {
     console.error('Backend rooms/join error:', error);

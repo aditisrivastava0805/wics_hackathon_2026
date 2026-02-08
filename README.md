@@ -85,6 +85,16 @@ To clear and reseed:
 npm run seed -- --clear
 ```
 
+**Demo users and messages** (so room members and chat show seed data via the backend):
+
+From the **repo root**, with the Flask backend running (so concert ids match the app list):
+
+```bash
+npm run seed:demo
+```
+
+This creates demo Auth users, mirrors profiles to `users/{email}` for the backend, syncs concert ids from `GET /api/events`, and seeds room members + room messages in the format the backend expects. Log in as `demo@utexas.edu` / `demo123456` to see seeded rooms and chat. Clear with `npm run seed:demo -- --clear`.
+
 ### 5. Run Development Server
 
 From the `frontend` folder:

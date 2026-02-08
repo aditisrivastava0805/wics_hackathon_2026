@@ -5,36 +5,26 @@
 
 import type { Concert } from '@/lib/types';
 
-/** Convert backend event date string to a Timestamp-like object for formatDate() */
 function toTimestampLike(dateStr: string | null | undefined): { toDate: () => Date } | null {
   if (!dateStr) return null;
-  let d = new Date(dateStr);
-  if (isNaN(d.getTime())) return null;
-  // If API sent a short date like "Feb 14" it can parse as 2001; normalize to current/next year
-  const now = new Date();
-  if (d.getFullYear() < 2024) {
-    d = new Date(d.getFullYear() + (now.getFullYear() - d.getFullYear()), d.getMonth(), d.getDate());
-    if (d < now) d = new Date(now.getFullYear() + 1, d.getMonth(), d.getDate());
-  }
-  return { toDate: () => d };
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? null : { toDate: () => d };
 }
 
-/** Map BackendEvent to frontend Concert type */
 export function eventToConcert(e: BackendEvent): Concert {
   return {
     id: e.id,
     name: e.name,
     artist: e.name,
     venue: e.venue,
-    date: toTimestampLike(e.date) as any,
+    date: toTimestampLike(e.date) as Concert['date'],
     imageUrl: e.imageUrl ?? null,
     genre: '',
     priceRange: e.priceRange ?? 'See tickets',
-    createdAt: toTimestampLike(new Date().toISOString()) as any,
+    createdAt: toTimestampLike(new Date().toISOString()) as Concert['createdAt'],
   };
 }
 
-// --- Events (concerts list from SerpAPI) ---
 export interface BackendEvent {
   id: string;
   name: string;
@@ -54,25 +44,16 @@ export async function fetchEvents(options?: {
   const max = options?.max ?? 50;
   const res = await fetch(
     `/api/events?music_only=${musicOnly}&max=${max}`,
-    { cache: 'no-store' }
+    { next: { revalidate: 300 } }
   );
-  const text = await res.text();
-  let data: { data?: BackendEvent[]; error?: string } = { data: [] };
-  if (text && text.trim() !== '') {
-    try {
-      data = JSON.parse(text) as { data?: BackendEvent[]; error?: string };
-    } catch {
-      // API may return non-JSON on error
-    }
-  }
   if (!res.ok) {
-    // Return empty list instead of throwing so UI can show "no events"
-    return (data.data ?? []) as BackendEvent[];
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || 'Failed to fetch events');
   }
+  const data = await res.json();
   return (data.data ?? []) as BackendEvent[];
 }
 
-// --- Register ---
 export async function registerUser(body: {
   email: string;
   name?: string;
@@ -91,7 +72,6 @@ export async function registerUser(body: {
   return data;
 }
 
-// --- Match ---
 export interface MatchResult {
   email: string;
   name: string;
@@ -112,7 +92,6 @@ export async function fetchMatches(userEmail: string, concertId?: string): Promi
   return (data.matches ?? []) as MatchResult[];
 }
 
-// --- Sync Last.fm ---
 export async function syncLastFm(
   email: string,
   lastfmUsername: string
@@ -127,7 +106,6 @@ export async function syncLastFm(
   return data;
 }
 
-// --- Rooms ---
 export async function joinRoom(
   userEmail: string,
   concertId: string,
@@ -179,7 +157,6 @@ export async function fetchRoomPeople(
   return (data.people ?? []) as RoomPerson[];
 }
 
-// --- Room chat ---
 export interface BackendChatMessage {
   user_email: string;
   user_name: string;
@@ -215,7 +192,6 @@ export async function sendRoomMessage(
   if (!res.ok) throw new Error((data as { error?: string }).error || 'Failed to send message');
 }
 
-// --- Connections ---
 export async function requestConnection(
   requesterEmail: string,
   recipientEmail: string,

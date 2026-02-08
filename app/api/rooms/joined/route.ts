@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,16 +13,8 @@ export async function GET(request: NextRequest) {
     const res = await fetch(
       `${BACKEND_URL}/api/rooms/joined?concert_id=${encodeURIComponent(concert_id)}&user_email=${encodeURIComponent(user_email)}`
     );
-    const text = await res.text();
-    let data: { joined?: boolean } = { joined: false };
-    if (text && text.trim() !== '') {
-      try {
-        data = JSON.parse(text) as { joined?: boolean };
-      } catch {
-        // ignore
-      }
-    }
-    return NextResponse.json({ joined: data.joined === true }, { status: 200 });
+    const data = await res.json();
+    return NextResponse.json(data, { status: res.status });
   } catch (error) {
     console.error('Backend rooms/joined error:', error);
     return NextResponse.json({ joined: false }, { status: 200 });

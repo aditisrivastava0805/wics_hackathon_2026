@@ -241,12 +241,13 @@ def join_room():
             "last_active": firestore.SERVER_TIMESTAMP
         }, merge=True)
         
-        # 2. Also add the Concert to the User's "My Events" list
+        # 2. Also add the Concert to the User's "My Events" list (create user doc if missing)
         user_ref = db.collection('users').document(email)
-        user_ref.update({
-            "my_concerts": firestore.ArrayUnion([concert_id])
-        })
-        
+        if user_ref.get().exists:
+            user_ref.update({"my_concerts": firestore.ArrayUnion([concert_id])})
+        else:
+            user_ref.set({"my_concerts": [concert_id]}, merge=True)
+
         return jsonify({"success": True, "message": f"Joined room for {concert_name}!"})
 
     except Exception as e:

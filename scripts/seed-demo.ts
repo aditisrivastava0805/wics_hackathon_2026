@@ -15,8 +15,9 @@ import { getFirestore, Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import * as dotenv from 'dotenv';
 
-// Load environment variables
+// Load environment variables (repo root or frontend)
 dotenv.config({ path: '.env.local' });
+dotenv.config({ path: 'frontend/.env.local' });
 
 // Initialize Firebase Admin
 if (getApps().length === 0) {
@@ -209,20 +210,71 @@ async function createUserProfile(uid: string, email: string, profile: any, displ
   
   if (existing.exists) {
     console.log(`  ℹ Profile exists: ${email}`);
-    return;
+  } else {
+    await userRef.set({
+      email,
+      displayName,
+      ...profile,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    });
+    console.log(`  ✓ Created profile: ${email}`);
   }
-  
-  await userRef.set({
+
+  // Mirror to users/{email} so Flask backend (rooms/people, rooms/chat) finds profiles by email
+  const byEmailRef = db.collection('users').doc(email);
+  await byEmailRef.set({
+    name: displayName,
     email,
-    displayName,
-    ...profile,
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
-  });
-  console.log(`  ✓ Created profile: ${email}`);
+    music_preferences: profile?.musicPreferences ?? { genres: [], artists: [] },
+    profile_image: profile?.avatarUrl ?? '',
+    is_verified: false,
+  }, { merge: true });
 }
 
 // ============ SEEDING FUNCTIONS ============
+
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
+
+/**
+ * Fetch concert ids from Flask backend (GET /api/events) and ensure Firestore has
+ * concert docs with those ids so seed data (members, messages) is attached to
+ * the same concerts the app list shows.
+ */
+async function ensureBackendConcertsInFirestore(): Promise<string[]> {
+  console.log('\n🎫 Syncing concerts from backend...');
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/events?music_only=true&max=20`);
+    const text = await res.text();
+    let data: { data?: Array<{ id: string; name?: string; venue?: string }> } = { data: [] };
+    if (text && text.trim()) {
+      try {
+        data = JSON.parse(text) as typeof data;
+      } catch {
+        console.log('  ⚠ Backend returned non-JSON');
+        return [];
+      }
+    }
+    const events = data.data ?? [];
+    if (events.length === 0) {
+      console.log('  ⚠ No events from backend (run backend + SerpAPI or frontend seed first)');
+      return [];
+    }
+    for (const ev of events) {
+      if (!ev?.id) continue;
+      await db.collection('concerts').doc(ev.id).set(
+        { name: ev.name ?? '', venue: ev.venue ?? '' },
+        { merge: true }
+      );
+    }
+    const ids = events.map((e) => e.id).filter(Boolean);
+    console.log(`  ✓ Synced ${ids.length} concert ids from backend`);
+    return ids;
+  } catch (err: any) {
+    console.log(`  ⚠ Could not reach backend (${err?.message ?? err}); using Firestore concerts only`);
+    return [];
+  }
+}
 
 async function seedUsers(): Promise<Map<string, CreatedUser>> {
   console.log('\n👥 Seeding users...');
@@ -246,30 +298,33 @@ async function seedUsers(): Promise<Map<string, CreatedUser>> {
   return users;
 }
 
-async function seedRoomMembers(users: Map<string, CreatedUser>): Promise<string[]> {
+async function seedRoomMembers(users: Map<string, CreatedUser>, preferredConcertIds?: string[]): Promise<string[]> {
   console.log('\n🚪 Seeding room members...');
   
-  // Get all concerts
-  const concertsSnapshot = await db.collection('concerts').get();
-  if (concertsSnapshot.empty) {
-    console.log('  ⚠ No concerts found. Run npm run seed first!');
-    return [];
-  }
-  
-  const concertIds: string[] = [];
   const allUsers = Array.from(users.values());
-  
-  // Add users to the first 3 concerts
-  const concertsToPopulate = concertsSnapshot.docs.slice(0, 3);
-  
-  for (const concertDoc of concertsToPopulate) {
-    const concertId = concertDoc.id;
-    const concertData = concertDoc.data();
-    concertIds.push(concertId);
+  let concertIds: string[] = [];
+
+  if (preferredConcertIds && preferredConcertIds.length > 0) {
+    concertIds = preferredConcertIds.slice(0, 5);
+    console.log(`  Using ${concertIds.length} concert(s) from backend`);
+  } else {
+    const concertsSnapshot = await db.collection('concerts').get();
+    if (concertsSnapshot.empty) {
+      console.log('  ⚠ No concerts found. Start backend (npm run dev in backend) or run npm run seed in frontend first.');
+      return [];
+    }
+    concertIds = concertsSnapshot.docs.slice(0, 3).map((d) => d.id);
+  }
+
+  for (const concertId of concertIds) {
+    const concertRef = db.collection('concerts').doc(concertId);
+    const concertDoc = await concertRef.get();
+    const concertData = concertDoc.exists ? concertDoc.data() : {};
+    const label = concertData?.name || concertData?.artist || concertId;
     
-    console.log(`\n  Concert: ${concertData.artist} @ ${concertData.venue}`);
+    console.log(`\n  Concert: ${label}`);
     
-    // Add all users to this room
+    // Add all users to this room (members subcollection + attendees for backend)
     for (const user of allUsers) {
       const memberRef = db.collection('concerts').doc(concertId).collection('members').doc(user.uid);
       const existing = await memberRef.get();
@@ -284,9 +339,13 @@ async function seedRoomMembers(users: Map<string, CreatedUser>): Promise<string[
         console.log(`    ℹ ${user.displayName} already in room`);
       }
     }
+
+    // Set concert.attendees = list of emails so Flask GET /api/rooms/people returns seed users
+    const attendeeEmails = allUsers.map((u) => u.email);
+    await db.collection('concerts').doc(concertId).set({ attendees: attendeeEmails }, { merge: true });
   }
   
-  console.log(`\n✅ Populated ${concertsToPopulate.length} concert rooms`);
+  console.log(`\n✅ Populated ${concertIds.length} concert rooms`);
   return concertIds;
 }
 
@@ -313,7 +372,7 @@ async function seedRoomMessages(users: Map<string, CreatedUser>, concertIds: str
     return;
   }
   
-  // Add messages with slight time delays
+  // Add messages in backend format (user_email, user_name, avatar, content, timestamp) so GET /api/rooms/chat returns them
   const baseTime = Date.now() - (ROOM_MESSAGES.length * 60000); // Start from X minutes ago
   
   for (let i = 0; i < ROOM_MESSAGES.length; i++) {
@@ -321,9 +380,11 @@ async function seedRoomMessages(users: Map<string, CreatedUser>, concertIds: str
     const user = allChatUsers[msg.userIndex % allChatUsers.length];
     
     await messagesRef.add({
-      userId: user.uid,
+      user_email: user.email,
+      user_name: user.displayName,
+      avatar: '',
       content: msg.content,
-      createdAt: Timestamp.fromMillis(baseTime + (i * 60000)), // 1 minute apart
+      timestamp: Timestamp.fromMillis(baseTime + (i * 60000)), // 1 minute apart; backend orders by 'timestamp'
     });
     console.log(`  ✓ ${user.displayName}: "${msg.content.substring(0, 30)}..."`);
   }
@@ -610,9 +671,10 @@ async function main() {
     process.exit(0);
   }
   
-  // Seed all demo data
+  // Seed all demo data (prefer backend concert ids so app list and seed data match)
   const users = await seedUsers();
-  const concertIds = await seedRoomMembers(users);
+  const backendConcertIds = await ensureBackendConcertsInFirestore();
+  const concertIds = await seedRoomMembers(users, backendConcertIds.length > 0 ? backendConcertIds : undefined);
   await seedRoomMessages(users, concertIds);
   await seedConnections(users, concertIds);
   

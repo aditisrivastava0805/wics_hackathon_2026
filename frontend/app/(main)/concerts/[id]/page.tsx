@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/auth-context';
 import {
@@ -41,10 +41,24 @@ function roomPersonToProfile(person: RoomPerson, isCurrentUser: boolean): UserPr
   };
 }
 
+function isValidConcertId(id: unknown): id is string {
+  if (id == null) return false;
+  const s = String(id).trim();
+  return s.length > 0 && s !== 'undefined' && s !== 'null';
+}
+
 export default function ConcertRoomPage() {
   const params = useParams();
+  const router = useRouter();
   const concertId = params.id as string;
   const { user, userProfile } = useAuth();
+
+  // Redirect to list if id is missing or invalid
+  useEffect(() => {
+    if (!isValidConcertId(concertId)) {
+      router.replace('/concerts');
+    }
+  }, [concertId, router]);
   const userEmail = user?.email ?? null;
 
   const [concert, setConcert] = useState<Concert | null>(null);
@@ -55,15 +69,16 @@ export default function ConcertRoomPage() {
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load concert from backend events
+  // Load concert from backend events (match by string id)
   useEffect(() => {
+    if (!isValidConcertId(concertId)) return;
     let cancelled = false;
     async function load() {
       setLoading(true);
       setError(null);
       try {
         const events = await fetchEvents({ musicOnly: true, max: 50 });
-        const event = events.find((e) => e.id === concertId);
+        const event = events.find((e) => e.id != null && String(e.id) === String(concertId));
         if (cancelled) return;
         if (!event) {
           setError('Concert not found');

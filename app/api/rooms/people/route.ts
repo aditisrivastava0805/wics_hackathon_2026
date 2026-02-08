@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,21 +12,10 @@ export async function GET(request: NextRequest) {
     }
     const url = `${BACKEND_URL}/api/rooms/people?concert_id=${encodeURIComponent(concert_id)}&user_email=${encodeURIComponent(user_email)}`;
     const res = await fetch(url);
-    const text = await res.text();
-    let data: { people?: unknown[]; error?: string } = { people: [] };
-    if (text && text.trim() !== '') {
-      try {
-        data = JSON.parse(text) as { people?: unknown[]; error?: string };
-      } catch {
-        data = { people: [] };
-      }
-    }
-    if (!res.ok) {
-      return NextResponse.json(data.people ? data : { people: [] }, { status: 200 });
-    }
+    const data = await res.json();
     return NextResponse.json(data, { status: res.status });
   } catch (error) {
     console.error('Backend rooms/people error:', error);
-    return NextResponse.json({ people: [] }, { status: 200 });
+    return NextResponse.json({ error: 'Failed to fetch room people' }, { status: 500 });
   }
 }

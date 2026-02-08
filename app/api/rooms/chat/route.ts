@@ -1,15 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
-
-function safeParseJson(text: string, fallback: object): object {
-  if (!text || text.trim() === '') return fallback;
-  try {
-    return JSON.parse(text) as object;
-  } catch {
-    return fallback;
-  }
-}
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,12 +10,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing concert_id' }, { status: 400 });
     }
     const res = await fetch(`${BACKEND_URL}/api/rooms/chat?concert_id=${encodeURIComponent(concert_id)}`);
-    const text = await res.text();
-    const data = safeParseJson(text, { messages: [] });
-    return NextResponse.json(data, { status: res.ok ? res.status : 200 });
+    const data = await res.json();
+    return NextResponse.json(data, { status: res.status });
   } catch (error) {
     console.error('Backend rooms/chat GET error:', error);
-    return NextResponse.json({ messages: [] }, { status: 200 });
+    return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });
   }
 }
 
@@ -36,9 +26,8 @@ export async function POST(request: NextRequest) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    const text = await res.text();
-    const data = safeParseJson(text, { error: 'Failed to send message' });
-    return NextResponse.json(data, { status: res.ok ? res.status : 500 });
+    const data = await res.json();
+    return NextResponse.json(data, { status: res.status });
   } catch (error) {
     console.error('Backend rooms/chat POST error:', error);
     return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
