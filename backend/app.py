@@ -48,6 +48,7 @@ def api_events():
     Returns cleaned list of concerts in Austin from Google Events (SerpAPI).
     Images are normalized to URLs only (no base64). Results are filtered to music and by date.
     """
+    print("📥 GET /api/events received")
     try:
         music_only = request.args.get('music_only', 'true').lower() in ('1', 'true', 'yes')
         max_results = min(100, max(1, int(request.args.get('max', 50))))
@@ -505,4 +506,5 @@ def get_connection_status():
         return jsonify({"status": "none"})
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    # Use 5001 to avoid macOS AirPlay Receiver on port 5000
+    app.run(debug=True, port=5001)

@@ -75,7 +75,7 @@ def _clean_event_to_concert(raw: dict, index: int) -> dict:
 
 def fetch_google_events_page(query: str, start: int = 0, date_filter: str = None) -> List[dict]:
     """Fetches a single page (10 results) from SerpAPI."""
-    key = "71c0636493ef472f0a0eb4e5b87190f9189367cdae46f29d52884ffc3b667824"
+    key = os.environ.get("SERPAPI_API_KEY", "").strip()
     if not key:
         print("❌ ERROR: SERPAPI_API_KEY not found in environment variables.")
         return []
@@ -95,8 +95,14 @@ def fetch_google_events_page(query: str, start: int = 0, date_filter: str = None
 
     try:
         r = requests.get(SERPAPI_BASE, params=params, timeout=15)
+        if r.status_code == 403:
+            print("❌ SerpAPI returned 403 Forbidden. Common causes: invalid/expired API key, rate limit, or Google Events not on your plan. Check https://serpapi.com/manage-api-key")
+            return []
         r.raise_for_status()
         return r.json().get("events_results", [])
+    except requests.exceptions.HTTPError as e:
+        print(f"❌ SerpAPI HTTP error: {e.response.status_code} - {e}")
+        return []
     except Exception as e:
         print(f"❌ SerpAPI Request Failed: {e}")
         return []

@@ -49,11 +49,19 @@ export async function fetchEvents(options?: {
     `/api/events?music_only=${musicOnly}&max=${max}`,
     { next: { revalidate: 300 } }
   );
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as { error?: string }).error || 'Failed to fetch events');
+  const text = await res.text();
+  let data: { data?: BackendEvent[]; error?: string } = { data: [] };
+  if (text && text.trim() !== '') {
+    try {
+      data = JSON.parse(text) as { data?: BackendEvent[]; error?: string };
+    } catch {
+      // API may return non-JSON on error
+    }
   }
-  const data = await res.json();
+  if (!res.ok) {
+    // Return empty list instead of throwing so UI can show "no events"
+    return (data.data ?? []) as BackendEvent[];
+  }
   return (data.data ?? []) as BackendEvent[];
 }
 
